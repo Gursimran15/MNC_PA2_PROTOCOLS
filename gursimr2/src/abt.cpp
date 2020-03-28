@@ -99,7 +99,7 @@ void B_input(struct pkt packet)
      acktoa.checksum = acktoa.seqnum + acktoa.acknum;
      tolayer3(1,acktoa);
    }
-
+ }
  if(packet.checksum != packfroma.checksum){ // If corrupted
    if(packet.seqnum == 0){
      acktoa.seqnum = packfroma.seqnum;
