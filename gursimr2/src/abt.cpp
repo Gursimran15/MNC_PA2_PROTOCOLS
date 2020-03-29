@@ -1,6 +1,7 @@
 #include "../include/simulator.h"
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 /* ******************************************************************
  ALTERNATING BIT AND GO-BACK-N NETWORK EMULATOR: VERSION 1.1  J.F.Kurose
 
@@ -18,11 +19,26 @@ using namespace std;
 pkt packtob,packfroma,acktoa,ackfromb;
 char buffer[1500];
 int count;
+int flag;
 /* called from layer 5, passed the data to be sent to other side */
 void A_output(struct msg message)
 {
   count++;
- strncat(buffer,message.data,sizeof(message.data)); 
+ strncat(buffer,message.data,sizeof(message.data));
+//  while(flag!=0)
+//  usleep(10000);
+if(packtob.seqnum==1){
+          packtob.seqnum=0;
+        }
+        else{
+          packtob.seqnum=1;
+        }
+ if(packtob.acknum==1){
+   packtob.acknum=0;
+ }
+ else{
+   packtob.acknum=1;
+ }
  packtob.checksum=0;
  for(int i=0;i<20;i++){
    packtob.payload[i]=buffer[(count-1)*20 + i];
@@ -32,43 +48,43 @@ void A_output(struct msg message)
   printf("%d \n",packtob.checksum);
   printf("%d \n",packtob.seqnum);
   printf("%d \n",packtob.acknum);
+  flag=1;
  tolayer3(0,packtob);
  starttimer(0,15);
   printf("%s","Message sent and timer started\n");
- if(packtob.acknum==1){
-   packtob.acknum=0;
- }
- else{
-   packtob.acknum=1;
- }
  printf("%d \n",packtob.checksum);
 }
 
 /* called from layer 3, when a packet arrives for layer 4 */
 void A_input(struct pkt packet)
 {
-  ackfromb.checksum = packet.seqnum + packet.acknum;
-   if(packet.acknum != packtob.acknum){
+  if(packtob.seqnum == 1){
+    ackfromb.acknum = 0;
+  }
+  else{
+    ackfromb.acknum = 1;
+  }
+  ackfromb.checksum = packtob.seqnum + ackfromb.acknum;
+   if(packet.acknum != ackfromb.acknum){
    }
   if(packet.checksum != ackfromb.checksum){
   }
-  if(packet.checksum == ackfromb.checksum){ //if not corrupted
-    if(packet.acknum == packtob.acknum){
+  if(packet.payload[0]=='C'){
+    stoptimer(0);
+    A_timerinterrupt();
+  }
+  if(packet.checksum == ackfromb.checksum && packet.payload[0]=='A'){ //if not corrupted
+    if(packet.acknum == ackfromb.acknum){
      stoptimer(0);
+     flag=0;
      printf("%s","Acknowledgement received\n");
-     if(packtob.seqnum==1){
-          packtob.seqnum=0;
-        }
-        else{
-          packtob.seqnum=1;
-        }
-            
     }
   }
 }
 /* called when A's timer goes off */
 void A_timerinterrupt()
 {
+  stoptimer(0);
 tolayer3(0,packtob);
  starttimer(0,15);
 }  
@@ -78,9 +94,10 @@ tolayer3(0,packtob);
 void A_init()
 {
   count=0;
-packtob.seqnum = 0;
-packtob.acknum = 0;
+packtob.seqnum = 1;
+packtob.acknum = 1;
 packtob.checksum = 0;
+flag=0;
 }
 
 /* Note that with simplex transfer from a-to-B, there is no B_output() */
@@ -97,31 +114,24 @@ void B_input(struct pkt packet)
  packfroma.checksum += packfroma.seqnum + packfroma.acknum;
  printf("%s","after checksum\n");
  if(packet.seqnum != packfroma.seqnum){ // for duplicate
-   if(packet.seqnum == 0){
-     acktoa.seqnum = packfroma.seqnum;
+      if(packet.seqnum == 0){
+     acktoa.seqnum = packet.seqnum;
      acktoa.acknum = 1;
      acktoa.checksum = acktoa.seqnum + acktoa.acknum;
-     tolayer3(1,acktoa);
-   }else{
-     acktoa.seqnum = packfroma.seqnum;
+     tolayer3(1,acktoa);}
+     else{
+       acktoa.seqnum = packet.seqnum;
      acktoa.acknum = 0;
      acktoa.checksum = acktoa.seqnum + acktoa.acknum;
      tolayer3(1,acktoa);
-   }
+     }
  }
  if(packet.checksum != packfroma.checksum){ // If corrupted
-   if(packet.seqnum == 0){
      acktoa.seqnum = packfroma.seqnum;
-     acktoa.acknum = 0;
+     acktoa.acknum = packfroma.acknum;
      acktoa.checksum = acktoa.seqnum + acktoa.acknum;
+     acktoa.payload[0] = 'C';
      tolayer3(1,acktoa);
-   }else{
-     acktoa.seqnum = packfroma.seqnum;
-     acktoa.acknum = 1;
-     acktoa.checksum = acktoa.seqnum + acktoa.acknum;
-     tolayer3(1,acktoa);
-   }
-
  }
  printf("%s","before correct checksum\n");
  printf("%d %d\n",packet.checksum,packfroma.checksum);
@@ -134,17 +144,21 @@ void B_input(struct pkt packet)
      acktoa.seqnum = packfroma.seqnum;
      acktoa.acknum = 1;
      acktoa.checksum = acktoa.seqnum + acktoa.acknum;
+      acktoa.payload[0] = 'A';
      tolayer3(1,acktoa);
     tolayer5(1,packfroma.payload);
    }else{
      acktoa.seqnum = packfroma.seqnum;
      acktoa.acknum = 0;
      acktoa.checksum = acktoa.seqnum + acktoa.acknum;
+      acktoa.payload[0] = 'A';
      tolayer3(1,acktoa);
      tolayer5(1,packfroma.payload);
    }
    printf("I am here");
-        if(packfroma.seqnum==1){
+    printf("%d \n",packfroma.seqnum);
+  printf("%d \n",packfroma.acknum);
+  if(packfroma.seqnum==1){
       packfroma.seqnum=0;
     }
     else{
@@ -156,8 +170,6 @@ void B_input(struct pkt packet)
     else{
       packfroma.acknum=1;
     }
-    printf("%d \n",packfroma.seqnum);
-  printf("%d \n",packfroma.acknum);
  }
 
 }
