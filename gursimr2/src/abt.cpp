@@ -17,13 +17,14 @@
 using namespace std;
 /********* STUDENTS WRITE THE NEXT SEVEN ROUTINES *********/
 pkt packtob,packfroma,acktoa,ackfromb;
-char buffer[20000];
+char buffer[2000];
 int count;
 int flag;
 char lastsent[20];
 int msgdelivered;
 int incomingcount=0;
 char lastincomingl5[20];
+int s=0,r=0;
 int changeseqno(int s){
   if(s==1){
           return 0;
@@ -57,31 +58,40 @@ void A_output(struct msg message)
             if(strncmp(message.data,lastincomingl5,sizeof(message.data))!=0){
                     incomingcount++;
                     for(int i=0;i<sizeof(message.data);i++)
-                    buffer[i+ (incomingcount-1)*20]=message.data[i];
+                    buffer[r++]=message.data[i];
                     strncpy(lastincomingl5,message.data,strlen(lastincomingl5));
                      printf("Message after buffer but inside lastincoming compare IF=%s\n",message.data);
-                     printf("%d \n",incomingcount);
+                    //  printf("%d \n",incomingcount);
                     }
             printf("Message after buffer=%s\n",message.data);
-            printf("%d \n",incomingcount);
-            printf("%d \n",count);
+            // printf("%d \n",incomingcount);
+            // printf("%d \n",count);
             //  strncat(buffer,message.data,sizeof(message.data));
             //  while(flag!=0)
             //  usleep(10000);
+            printf("Buffer=%s\n",buffer);
             if(flag==0 ||(msgdelivered && strncmp(lastsent,packtob.payload,sizeof(lastsent))==0 )){ // Condition to deal with skipping messages due to delayed ack
                     count++;
-                    printf("%d \n",count);
-                    printf("%d \n",packtob.checksum);
-                    printf("%d \n",packtob.seqnum);
-                    printf("%d \n",packtob.acknum);
+                    // printf("%d \n",count);
+                    // printf("%d \n",packtob.checksum);
+                    // printf("%d \n",packtob.seqnum);
+                    // printf("%d \n",packtob.acknum);
                     packtob.seqnum=changeseqno(packtob.seqnum);
                       packtob.acknum=changeackno(packtob.acknum);
                   for(int i=0;i<20;i++){
                     
-                    packtob.payload[i]=buffer[(count-1)*20 + i];
+                    packtob.payload[i]=buffer[s++];
                   }
+                  }
+                  if(r>1600){
+                    r=0;
+                  }
+                  if(s>1600){
+                    s=0;
                   }
  }
+ printf("Buffer after=%s\n",buffer);
+ printf("Payload=%s\n",packtob.payload);
  packtob.checksum=makechecksum(packtob);
  printf("%d \n",count);
   printf("%d \n",packtob.checksum);

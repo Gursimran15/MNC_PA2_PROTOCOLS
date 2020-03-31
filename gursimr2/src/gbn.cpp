@@ -1,5 +1,6 @@
 #include "../include/simulator.h"
-
+#include <bits/stdc++.h> 
+using namespace std;
 /* ******************************************************************
  ALTERNATING BIT AND GO-BACK-N NETWORK EMULATOR: VERSION 1.1  J.F.Kurose
 
@@ -16,8 +17,49 @@
 /********* STUDENTS WRITE THE NEXT SEVEN ROUTINES *********/
 
 /* called from layer 5, passed the data to be sent to other side */
+int base,nextseqnum,winsize,maxseqnum,bufferseqnum;
+map<int, string> buffer;
+pkt sendpkt; 
+void makepacket(pkt &p,int n){
+p.checksum=0;
+for(int i=0;i<20;i++){
+  p.payload[i]=buffer[n][i];
+  p.checksum+=(int)p.payload[i];
+}
+p.seqnum = n;
+p.acknum = n;
+p.checksum += p.seqnum + p.acknum;
+}
+void sendpacket(pkt &p){
+tolayer3(0,p);
+}
 void A_output(struct msg message)
 {
+  if(bufferseqnum <= maxseqnum){ //into buffer
+  buffer[bufferseqnum]=message.data;
+  bufferseqnum++;
+  }
+  else{
+    bufferseqnum=1;
+  }
+  if((nextseqnum % maxseqnum) < (base + winsize) % maxseqnum){
+    //makepacket
+    makepacket(sendpkt,nextseqnum);
+    //sendpacket
+    sendpacket(sendpkt);
+    if(base==nextseqnum)
+      starttimer(0,30);
+    nextseqnum++;
+  }
+  else{
+    //Refuse 
+  }
+  if(nextseqnum > maxseqnum){ // max seq number
+    nextseqnum = 1;
+  }
+  if(base > maxseqnum){
+    base=1;
+  }
 
 }
 
@@ -30,14 +72,21 @@ void A_input(struct pkt packet)
 /* called when A's timer goes off */
 void A_timerinterrupt()
 {
-
+starttimer(0,30);
+for(int i=base;i<=nextseqnum-1;i++){
+  sendpacket(buffer[i]);//working on timeout send
+}
 }  
 
 /* the following routine will be called once (only) before any other */
 /* entity A routines are called. You can use it to do any initialization */
 void A_init()
 {
-
+base=1;
+nextseqnum=1;
+winsize=getwinsize();
+maxseqnum = 2*winsize;
+bufferseqnum=1;
 }
 
 /* Note that with simplex transfer from a-to-B, there is no B_output() */
