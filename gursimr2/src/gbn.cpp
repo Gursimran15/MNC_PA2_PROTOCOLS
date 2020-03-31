@@ -35,14 +35,14 @@ tolayer3(0,p);
 }
 void A_output(struct msg message)
 {
-  if(bufferseqnum <= maxseqnum){ //into buffer
+  // if(bufferseqnum <= maxseqnum){ //into buffer
   buffer[bufferseqnum]=message.data;
   bufferseqnum++;
-  }
-  else{
-    bufferseqnum=1;
-  }
-  if((nextseqnum % maxseqnum) < (base + winsize) % maxseqnum){
+  // }
+  // else{
+  //   bufferseqnum=1;
+  // }
+  if((nextseqnum) < (base + winsize) ){
     //makepacket
     makepacket(sendpkt,nextseqnum);
     //sendpacket
@@ -54,13 +54,20 @@ void A_output(struct msg message)
   else{
     //Refuse 
   }
-  if(nextseqnum > maxseqnum){ // max seq number
-    nextseqnum = 1;
-  }
-  if(base > maxseqnum){
-    base=1;
-  }
-
+  // if(nextseqnum > maxseqnum){ // max seq number
+  //   nextseqnum = 1;
+  // }
+  // if(base > maxseqnum){
+  //   base=1;
+  // }
+//   printf("\nBuffer\n");
+//   char s[20];
+// for(int i=1;i<bufferseqnum;i++){
+//   for(int j=0;j<20;j++)
+//     s[j]=buffer[i][j];
+//   printf("\n%s\n",s);
+//   }
+// printf("Payload\n%s\n",sendpkt.payload);
 }
 
 /* called from layer 3, when a packet arrives for layer 4 */
