@@ -62,8 +62,10 @@ void A_output(struct msg message)
 
   for(int i=base;i<=base+winsize;i++)
   if(sendtime[i]+15>get_sim_time()){
+    if(r[i]!=1){
     intseq = i;
     A_timerinterrupt();
+    }
   }
 }
 
@@ -94,10 +96,7 @@ printf("%d\n",base);
 /* called when A's timer goes off */
 void A_timerinterrupt()
 {
-  //Start timer again for whole window
-
-
-//Resend all the packets whose ack is not received
+//Resend the packet whose ack is not received
   makepacket(bufferpkt,intseq);
   sendpacket(bufferpkt);
   sendtime[intseq]=get_sim_time();
