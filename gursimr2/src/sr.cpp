@@ -15,7 +15,12 @@ using namespace std;
 **********************************************************************/
 
 /********* STUDENTS WRITE THE NEXT SEVEN ROUTINES *********/
-
+struct interrupt{
+  int i;
+  int pseq;
+};
+int b=-1;
+map<int,interrupt> it;
 int base,nextseqnum,winsize,bufferseqnum,rbase,rwindow;
 map<int, string> buffer;
 map<int,pkt> rbuffer;
@@ -23,7 +28,9 @@ map<int,int> r;
 map<int,int> rlist;
 map<int,float> sendtime;
 int intseq;
+map <int,int> aftertime;
 int rl;
+float starttime;
 char rcv[20];
 pkt sendpkt,bufferpkt,ackpkt; 
 void makepacket(pkt &p,int n){
@@ -42,6 +49,7 @@ tolayer3(0,p);
 /* called from layer 5, passed the data to be sent to other side */
 void A_output(struct msg message)
 {
+  printf("%f\n",get_sim_time());
   //Storing in Buffer
   buffer[bufferseqnum]=message.data;
   bufferseqnum++;
@@ -50,9 +58,19 @@ void A_output(struct msg message)
     makepacket(sendpkt,nextseqnum);
     //sendpacket
     sendpacket(sendpkt);
-    sendtime[nextseqnum]=get_sim_time();
-    nextseqnum++;
+    it[nextseqnum].i=0;
+    printf("%f\n",get_sim_time());
+    if(nextseqnum==1){
+    starttimer(0,15);
+    starttime=get_sim_time();
+    }
+    sendtime[nextseqnum]=get_sim_time() - starttime;
+    printf("%f\n",get_sim_time());
+     printf("st %f\n",sendtime[nextseqnum]);
+    printf("st %f\n",sendtime[nextseqnum]+15);
+    printf("%f\n",get_sim_time());
 
+    nextseqnum++;
     printf("I am here1\n"); //for debug
     printf("%s\n",sendpkt.payload); //for debug
   }
@@ -60,13 +78,13 @@ void A_output(struct msg message)
     //Refuse 
   }
 
-  for(int i=base;i<=base+winsize;i++)
-  if(sendtime[i]+15>get_sim_time()){
-    if(r[i]!=1){
-    intseq = i;
-    A_timerinterrupt();
-    }
-  }
+  // for(int i=base;i<=base+winsize;i++)
+  // if(sendtime[i]+15>get_sim_time()){
+  //   if(r[i]!=1){
+  //   intseq = i;
+  //   A_timerinterrupt();
+  //   }
+  // }
 }
 
 /* called from layer 3, when a packet arrives for layer 4 */
@@ -82,9 +100,25 @@ if(checksum == packet.checksum){ //check for corruption
       if(packet.acknum==base){  // If received an ack for base, slide the window for all received packages
         while(r[base]==1){
           base++; 
+          b=-1;
         }
         // stoptimer(0);   // Stop and Restart the timer whenever base is changed
         // starttimer(0,15*winsize); // Timer for the whole window so that we give enough time for all packets
+      }
+      float time=get_sim_time()-starttime;
+      printf("1 %f\n",get_sim_time());
+      stoptimer(0);
+      if(it[base].i == 0){
+      starttimer(0,sendtime[base]+15-time);
+       printf("1 %f\n",sendtime[base]+15-time);
+      }else if(it[base].i==1){
+        b++;
+        int t,j;
+        for(t=0,j=base+1;j<=it[base].pseq;j++)
+        aftertime[t++]=j;
+        aftertime[t]=base;
+        printf("2 %f\n",get_sim_time());
+        starttimer(0,sendtime[aftertime[b]]+15-time);
       }
 }
 else{
@@ -97,9 +131,16 @@ printf("%d\n",base);
 void A_timerinterrupt()
 {
 //Resend the packet whose ack is not received
-  makepacket(bufferpkt,intseq);
+  printf("1 %f\n",get_sim_time());
+  makepacket(bufferpkt,base);
   sendpacket(bufferpkt);
-  sendtime[intseq]=get_sim_time();
+  sendtime[base]=get_sim_time()-starttime;
+  it[base].i=1;
+  it[base].pseq = nextseqnum -1;
+  float time=get_sim_time() - starttime;
+  starttimer(0,sendtime[base + 1]+15-time);
+  printf("2 %f\n",sendtime[base + 1]+15-time);
+  printf("2 %f\n",get_sim_time());
   }
 
 
@@ -111,7 +152,7 @@ void A_init()
     nextseqnum=1;
     winsize=getwinsize();
     bufferseqnum=1;
-    starttimer(0,10000); // Starting Timer for the whole Window, so that there is enough time for all packets
+     // Starting Timer for the whole Window, so that there is enough time for all packets
     rl=0;
 }
 

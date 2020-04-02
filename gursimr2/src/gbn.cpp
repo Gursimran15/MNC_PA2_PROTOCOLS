@@ -35,6 +35,7 @@ tolayer3(0,p);
 }
 void A_output(struct msg message)
 {
+   printf("%d\n",get_sim_time());
    //into buffer
   buffer[bufferseqnum]=message.data;
   bufferseqnum++;
@@ -46,6 +47,7 @@ void A_output(struct msg message)
     sendpacket(sendpkt);
     if(base==nextseqnum)
       starttimer(0,30);
+     printf("%d\n",get_sim_time());
     nextseqnum++;
   }
   else{
@@ -77,7 +79,9 @@ else{
 /* called when A's timer goes off */
 void A_timerinterrupt()
 {
+   printf("%d\n",get_sim_time());
 starttimer(0,30);
+ printf("%d\n",get_sim_time());
 for(int i=base;i<=nextseqnum-1;i++){
   makepacket(bufferpkt,i);
   sendpacket(bufferpkt);//working on timeout send
