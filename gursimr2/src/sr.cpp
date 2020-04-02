@@ -21,6 +21,8 @@ map<int, string> buffer;
 map<int,pkt> rbuffer;
 map<int,int> r;
 map<int,int> rlist;
+map<int,float> sendtime;
+int intseq;
 int rl;
 char rcv[20];
 pkt sendpkt,bufferpkt,ackpkt; 
@@ -40,6 +42,7 @@ tolayer3(0,p);
 /* called from layer 5, passed the data to be sent to other side */
 void A_output(struct msg message)
 {
+  //Storing in Buffer
   buffer[bufferseqnum]=message.data;
   bufferseqnum++;
    if((nextseqnum) < (base + winsize) ){
@@ -47,34 +50,39 @@ void A_output(struct msg message)
     makepacket(sendpkt,nextseqnum);
     //sendpacket
     sendpacket(sendpkt);
-    // if(base==nextseqnum)//change timer thing
-     
+    sendtime[nextseqnum]=get_sim_time();
     nextseqnum++;
-    printf("I am here1\n");
-    printf("%s\n",sendpkt.payload);
+
+    printf("I am here1\n"); //for debug
+    printf("%s\n",sendpkt.payload); //for debug
   }
   else{
     //Refuse 
   }
 
+  for(int i=base;i<=base+winsize;i++)
+  if(sendtime[i]+15>get_sim_time()){
+    intseq = i;
+    A_timerinterrupt();
+  }
 }
 
 /* called from layer 3, when a packet arrives for layer 4 */
 void A_input(struct pkt packet)
 {
-//major change
+
+//Calculating Checksum
 int checksum = 0;
 checksum += packet.seqnum + packet.acknum;
-if(checksum == packet.checksum){
-      // for(int i=0;i<rl && !=r[packet.seqnum];i++);//can optimize
-      if(r[packet.seqnum]!=1)
+if(checksum == packet.checksum){ //check for corruption
+      if(r[packet.seqnum]!=1) //marking as received
       r[packet.seqnum]=1;
-      if(packet.acknum==base){
+      if(packet.acknum==base){  // If received an ack for base, slide the window for all received packages
         while(r[base]==1){
-          base++;
+          base++; 
         }
-        stoptimer(0);
-        starttimer(0,15*winsize);
+        // stoptimer(0);   // Stop and Restart the timer whenever base is changed
+        // starttimer(0,15*winsize); // Timer for the whole window so that we give enough time for all packets
       }
 }
 else{
@@ -86,15 +94,15 @@ printf("%d\n",base);
 /* called when A's timer goes off */
 void A_timerinterrupt()
 {
-  //change this
+  //Start timer again for whole window
 
-starttimer(0,15*winsize);
-for(int i=base;i<=nextseqnum-1;i++){
-  if(r[i]!=1){
-  makepacket(bufferpkt,i);
-  sendpacket(bufferpkt);}
-}
-}  
+
+//Resend all the packets whose ack is not received
+  makepacket(bufferpkt,intseq);
+  sendpacket(bufferpkt);
+  sendtime[intseq]=get_sim_time();
+  }
+
 
 /* the following routine will be called once (only) before any other */
 /* entity A routines are called. You can use it to do any initialization */
@@ -104,7 +112,7 @@ void A_init()
     nextseqnum=1;
     winsize=getwinsize();
     bufferseqnum=1;
-    starttimer(0,15*winsize);
+    starttimer(0,10000); // Starting Timer for the whole Window, so that there is enough time for all packets
     rl=0;
 }
 
@@ -113,9 +121,8 @@ void A_init()
 /* called from layer 3, when a packet arrives for layer 4 at B*/
 void B_input(struct pkt packet)
 {
-  //major change
-  printf("I am here2\n");
-   printf("%s\n",packet.payload);
+  printf("I am here2\n"); //for debug
+   printf("%s\n",packet.payload); //for debug
    int checksum = 0;
 for(int i=0;i<20;i++){
   checksum += packet.payload[i];
@@ -123,30 +130,30 @@ for(int i=0;i<20;i++){
 checksum += packet.seqnum + packet.acknum;
 if(checksum == packet.checksum){ // If not corrupted and has expected sequence number
       if(packet.seqnum >= rbase && packet.seqnum<=(rbase + rwindow -1)){
-        printf("I am here3\n");
+        printf("I am here3\n"); //for debug
               ackpkt.seqnum=packet.seqnum;
             ackpkt.acknum=packet.acknum;
             ackpkt.checksum=ackpkt.seqnum+ackpkt.acknum;
-            tolayer3(1,ackpkt);
+            tolayer3(1,ackpkt); //sending ack for packet in expected window
             rlist[packet.seqnum]=1;
             if(packet.seqnum!=rbase){
-              printf("I am here4\n");
+              printf("I am here4\n"); //for debug
               //buffer
               rbuffer[packet.seqnum]=packet;
             }
-            else{printf("I am here5\n");
+            else{printf("I am here5\n"); //for debug
               rbuffer[packet.seqnum]=packet;
               while(rlist[rbase]==1){
-                printf("I am here6\n");
-                printf("%s\n",rbuffer[rbase].payload);
-                strncpy(rcv,rbuffer[rbase].payload,20);
-                printf("%s\n",rcv);
-                tolayer5(1,rbuffer[rbase].payload);
+                printf("I am here6\n");//for debug
+                printf("%s\n",rbuffer[rbase].payload); //for debug
+                strncpy(rcv,rbuffer[rbase].payload,20); //for debug
+                printf("%s\n",rcv); //for debug
+                tolayer5(1,rbuffer[rbase].payload); // Sending all received packets to layer5
                 rbase++;
               }
             }
       }
-      else{
+      else{  //If not in current window but in any previous window
               if(packet.seqnum >= (rbase-rwindow) && packet.seqnum<=(rbase-1)){
                 ackpkt.seqnum=packet.seqnum;
                 ackpkt.acknum=packet.acknum;

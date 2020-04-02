@@ -51,19 +51,19 @@ p.checksum += p.seqnum + p.acknum;
 /* called from layer 5, passed the data to be sent to other side */
 void A_output(struct msg message)
 {
-  printf("I am here 1\n");
+  printf("I am here 1\n"); //for debug
   buffer[bufferseqnum]=message.data;
   bufferseqnum++;
-  printf("I am here 2\n");
+  printf("I am here 2\n"); //for debug
             if(recv){
-               // Condition to deal with skipping messages due to delayed ack
-              printf("I am here 3\n");
+              
+              printf("I am here 3\n"); //for debug
                     makepacket(packtob,c);
                     tolayer3(0,packtob);
                     starttimer(0,15);
                     recv=0;            
                   }
-                  printf("I am here 4\n");
+                  printf("I am here 4\n"); //for debug
  }
 
 
@@ -72,16 +72,16 @@ void A_input(struct pkt packet)
 {
   int checksum=0; 
   checksum+= packet.seqnum + packet.acknum;
-  printf("I am here 7\n");
-printf("%d %d\n",packtob.seqnum,packet.seqnum);
-printf("%d %d\n",packtob.acknum,packet.acknum);
-printf("%d %d\n",checksum,packet.checksum);
-  if(checksum == packet.checksum && packet.acknum==packtob.acknum){
+  printf("I am here 7\n"); //for debug
+printf("%d %d\n",packtob.seqnum,packet.seqnum); //for debug
+printf("%d %d\n",packtob.acknum,packet.acknum); //for debug
+printf("%d %d\n",checksum,packet.checksum); //for debug
+  if(checksum == packet.checksum && packet.acknum==packtob.acknum){ // If not corrupted and has expected ack number
     stoptimer(0);
     packtob.seqnum=changeseqno(packtob.seqnum);
     packtob.acknum=changeackno(packtob.acknum);
-    printf("%d %d\n",packtob.seqnum,packet.seqnum);
-    printf("%d %d\n",packtob.acknum,packet.acknum);
+    printf("%d %d\n",packtob.seqnum,packet.seqnum); //for debug
+    printf("%d %d\n",packtob.acknum,packet.acknum); //for debug
     c++;
     recv=1;
   }
@@ -113,17 +113,17 @@ bufferseqnum=1;
 /* called from layer 3, when a packet arrives for layer 4 at B*/
 void B_input(struct pkt packet)
 {
-  printf("I am here 5\n");
+  printf("I am here 5\n");//for debug
   int checksum = 0;
 for(int i=0;i<20;i++){
   checksum += (int)packet.payload[i];
 }
-printf("I am here 6\n");
+printf("I am here 6\n"); //for debug
 checksum += packet.seqnum + packet.acknum;
-printf("%d %d\n",checksum,packet.checksum);
-printf("I am here 6\n");
-printf("%d %d\n",packfroma.seqnum,packet.seqnum);
-if(checksum == packet.checksum && packet.seqnum==packfroma.seqnum){
+printf("%d %d\n",checksum,packet.checksum); //for debug
+printf("I am here 6\n"); //for debug
+printf("%d %d\n",packfroma.seqnum,packet.seqnum); //for debug
+if(checksum == packet.checksum && packet.seqnum==packfroma.seqnum){// If not corrupted and has expected sequence number
   tolayer5(1,packet.payload);
 packfroma.checksum=packfroma.seqnum+packfroma.acknum;
 tolayer3(1,packfroma);

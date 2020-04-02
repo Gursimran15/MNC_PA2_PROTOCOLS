@@ -35,13 +35,10 @@ tolayer3(0,p);
 }
 void A_output(struct msg message)
 {
-  // if(bufferseqnum <= maxseqnum){ //into buffer
+   //into buffer
   buffer[bufferseqnum]=message.data;
   bufferseqnum++;
-  // }
-  // else{
-  //   bufferseqnum=1;
-  // }
+  
   if((nextseqnum) < (base + winsize) ){
     //makepacket
     makepacket(sendpkt,nextseqnum);
@@ -61,9 +58,6 @@ void A_output(struct msg message)
 void A_input(struct pkt packet)
 {
 int checksum = 0;
-// for(int i=0;i<20;i++){
-//   checksum += packet.payload[i];
-// }
 checksum += packet.seqnum + packet.acknum;
 if(checksum == packet.checksum){
       base = packet.acknum + 1;
