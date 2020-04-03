@@ -1,5 +1,6 @@
 #include "../include/simulator.h"
-#include <bits/stdc++.h> 
+#include <bits/stdc++.h>
+#include <queue> 
 using namespace std;
 /* ******************************************************************
  ALTERNATING BIT AND GO-BACK-N NETWORK EMULATOR: VERSION 1.1  J.F.Kurose
@@ -23,6 +24,7 @@ int b=-1;
 map<int,interrupt> it;
 int base,nextseqnum,winsize,bufferseqnum,rbase,rwindow;
 map<int, string> buffer;
+queue<int> readyq;
 map<int,pkt> rbuffer;
 map<int,int> r;
 map<int,int> rlist;
@@ -58,17 +60,24 @@ void A_output(struct msg message)
     makepacket(sendpkt,nextseqnum);
     //sendpacket
     sendpacket(sendpkt);
-    it[nextseqnum].i=0;
-    printf("%f\n",get_sim_time());
+    readyq.push(nextseqnum);
     if(nextseqnum==1){
-    starttimer(0,15);
-    starttime=get_sim_time();
+      starttimer(0,30.00);
+      starttime=get_sim_time();
     }
-    sendtime[nextseqnum]=get_sim_time() - starttime;
+    sendtime[nextseqnum]=get_sim_time();
     printf("%f\n",get_sim_time());
-     printf("st %f\n",sendtime[nextseqnum]);
-    printf("st %f\n",sendtime[nextseqnum]+15);
-    printf("%f\n",get_sim_time());
+    // it[nextseqnum].i=0;
+    // printf("%f\n",get_sim_time());
+    // if(nextseqnum==1){
+    // starttimer(0,15);
+    // starttime=get_sim_time();
+    // }
+    // sendtime[nextseqnum]=get_sim_time() - starttime;
+    // printf("%f\n",get_sim_time());
+    //  printf("st %f\n",sendtime[nextseqnum]);
+    // printf("st %f\n",sendtime[nextseqnum]+15);
+    // printf("%f\n",get_sim_time());
 
     nextseqnum++;
     printf("I am here1\n"); //for debug
@@ -95,6 +104,8 @@ void A_input(struct pkt packet)
 int checksum = 0;
 checksum += packet.seqnum + packet.acknum;
 if(checksum == packet.checksum){ //check for corruption
+      stoptimer(0);
+      printf("I am here8\n");
       if(r[packet.seqnum]!=1) //marking as received
       r[packet.seqnum]=1;
       if(packet.acknum==base){  // If received an ack for base, slide the window for all received packages
@@ -102,24 +113,11 @@ if(checksum == packet.checksum){ //check for corruption
           base++; 
           b=-1;
         }
-        // stoptimer(0);   // Stop and Restart the timer whenever base is changed
-        // starttimer(0,15*winsize); // Timer for the whole window so that we give enough time for all packets
       }
-      float time=get_sim_time()-starttime;
-      printf("1 %f\n",get_sim_time());
-      stoptimer(0);
-      if(it[base].i == 0){
-      starttimer(0,sendtime[base]+15-time);
-       printf("1 %f\n",sendtime[base]+15-time);
-      }else if(it[base].i==1){
-        b++;
-        int t,j;
-        for(t=0,j=base+1;j<=it[base].pseq;j++)
-        aftertime[t++]=j;
-        aftertime[t]=base;
-        printf("2 %f\n",get_sim_time());
-        starttimer(0,sendtime[aftertime[b]]+15-time);
-      }
+      while(r[readyq.front()] == 1)
+      readyq.pop();
+      float time = get_sim_time() - sendtime[readyq.front()];
+      starttimer(0,30.00-time);
 }
 else{
   //do nothing
@@ -132,15 +130,24 @@ void A_timerinterrupt()
 {
 //Resend the packet whose ack is not received
   printf("1 %f\n",get_sim_time());
+  printf("1 %f\n",starttime);
   makepacket(bufferpkt,base);
   sendpacket(bufferpkt);
-  sendtime[base]=get_sim_time()-starttime;
-  it[base].i=1;
-  it[base].pseq = nextseqnum -1;
-  float time=get_sim_time() - starttime;
-  starttimer(0,sendtime[base + 1]+15-time);
-  printf("2 %f\n",sendtime[base + 1]+15-time);
-  printf("2 %f\n",get_sim_time());
+  sendtime[readyq.front()]=get_sim_time();
+  readyq.push(readyq.front());
+  readyq.pop();
+   while(r[readyq.front()] == 1)
+      readyq.pop();
+  float time = (get_sim_time()) - sendtime[readyq.front()];
+  starttimer(0,30.00-time);
+  // sendtime[base]=get_sim_time()-starttime;
+  // it[base].i=1;
+  // it[base].pseq = nextseqnum -1;
+  // float time=get_sim_time() - starttime;
+  // starttimer(0,15);
+  // printf("2 %f\n",time + 15);
+  // printf("2 %f\n",sendtime[base + 1]+15-time);
+  // printf("2 %f\n",get_sim_time());
   }
 
 
@@ -188,7 +195,9 @@ if(checksum == packet.checksum){ // If not corrupted and has expected sequence n
                 printf("%s\n",rbuffer[rbase].payload); //for debug
                 strncpy(rcv,rbuffer[rbase].payload,20); //for debug
                 printf("%s\n",rcv); //for debug
-                tolayer5(1,rbuffer[rbase].payload); // Sending all received packets to layer5
+                tolayer5(1,rcv); // Sending all received packets to layer5
+                printf("I am here7\n");
+                printf("%s\n",rcv);
                 rbase++;
               }
             }
