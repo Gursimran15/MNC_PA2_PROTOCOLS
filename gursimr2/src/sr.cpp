@@ -53,9 +53,12 @@ void A_output(struct msg message)
     if(nextseqnum==1){
       starttimer(0,20.0);
     }
-    if(wait.size()==1 && wait.front()==nextseqnum)
-   starttimer(0,20.0);
+  //   if(wait.size()==1 && wait.front()==nextseqnum)
+  //  starttimer(0,20.0);
     nextseqnum++;
+  }
+  if(nextseqnum-1 !=1 && sendbase==nextseqnum-1){
+    starttimer(0,20.0);
   }
   
 }
@@ -71,21 +74,21 @@ void A_input(struct pkt packet)
 if(packet.checksum == checksum){
 
  if(packet.acknum >= sendbase && packet.acknum < sendbase + window){
-    stoptimer(0);
     
     cout<<"I am here\n";
    rs[packet.seqnum - 1]=1;
    
    if(sendbase==packet.acknum){
+     stoptimer(0);
      while(rs[sendbase-1]==1)
      sendbase++;
-   }
-   
-   while(rs[wait.front()-1]==1)
+     while(rs[wait.front()-1]==1)
    wait.pop();
    float time = get_sim_time() - st[wait.front()-1]; 
-   if(!wait.empty())
-    starttimer(0,20.0 -time);
+   float ftime = 20.0 -time;
+    starttimer(0,ftime);
+   }
+   
  }
 
 }
@@ -110,7 +113,11 @@ while(rs[wait.front()-1]==1)
 wait.pop();
 st[p-1]=get_sim_time();
 float time = get_sim_time() - st[wait.front()-1]; 
-starttimer(0,20.0 - time);
+float ftime = 20.0 - time;
+if(ftime > 0)
+	starttimer(0,ftime);
+	else
+	starttimer(0,20.0);
   }
 
 
