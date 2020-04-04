@@ -73,9 +73,7 @@ if(packet.checksum == checksum){
     
     cout<<"I am here\n";
    rs[packet.seqnum - 1]=1;
-   st[sendbase - 1] = 0;
    if(sendbase==packet.acknum){
-     stoptimer(0);
      while(rs[sendbase-1]==1){
      if(wait.front()==sendbase)
      wait.pop();
@@ -159,7 +157,6 @@ if(packet.checksum == checksum){
     rbuffer[packet.seqnum-1].acknum=packet.acknum;
     rbuffer[packet.seqnum-1].checksum=packet.checksum;
     strncpy(rbuffer[packet.seqnum-1].payload,packet.payload,sizeof(packet.payload));
-        
     }
     
     if(packet.seqnum == rbase){
