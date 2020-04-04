@@ -16,23 +16,18 @@ using namespace std;
 **********************************************************************/
 
 /********* STUDENTS WRITE THE NEXT SEVEN ROUTINES *********/
-struct interrupt{
-  int i;
-  int pseq;
+struct buf{
+  string b;
+  int r;
+  float st;
 };
-int b=-1;
-map<int,interrupt> it;
 int base,nextseqnum,winsize,bufferseqnum,rbase,rwindow;
 map<int, string> buffer;
 queue<int> readyq;
-map<int,pkt> rbuffer;
+map<int,string> rbuffer;
 map<int,int> r;
 map<int,int> rlist;
 map<int,float> sendtime;
-int intseq;
-map <int,int> aftertime;
-int rl;
-float starttime;
 char rcv[20];
 pkt sendpkt,bufferpkt,ackpkt; 
 void makepacket(pkt &p,int n){
@@ -51,49 +46,32 @@ tolayer3(0,p);
 /* called from layer 5, passed the data to be sent to other side */
 void A_output(struct msg message)
 {
-  printf("%f\n",get_sim_time());
   //Storing in Buffer
   buffer[bufferseqnum]=message.data;
   bufferseqnum++;
+  for(int i=1;i<bufferseqnum;i++){
+    cout<<i<<'\n'<<buffer[i]<<'\n';
+  }
+  cout<<nextseqnum<<'\n'<<buffer[nextseqnum]<<'\n';
    if((nextseqnum) < (base + winsize) ){
     //makepacket
     makepacket(sendpkt,nextseqnum);
     //sendpacket
     sendpacket(sendpkt);
-    readyq.push(nextseqnum);
-    if(nextseqnum==1){
-      starttimer(0,30.00);
-      starttime=get_sim_time();
-    }
     sendtime[nextseqnum]=get_sim_time();
-    printf("%f\n",get_sim_time());
-    // it[nextseqnum].i=0;
-    // printf("%f\n",get_sim_time());
-    // if(nextseqnum==1){
-    // starttimer(0,15);
-    // starttime=get_sim_time();
-    // }
-    // sendtime[nextseqnum]=get_sim_time() - starttime;
-    // printf("%f\n",get_sim_time());
-    //  printf("st %f\n",sendtime[nextseqnum]);
-    // printf("st %f\n",sendtime[nextseqnum]+15);
-    // printf("%f\n",get_sim_time());
-
+    readyq.push(nextseqnum);
+    if(nextseqnum==1)
+      starttimer(0,15.00);
+    cout<<"Send\n";
+    cout<<nextseqnum<<'\n';
+    cout<<base<<'\n';
+    cout<<sendpkt.seqnum<<' '<<sendpkt.payload<<'\n';
+    cout<<readyq.size();
     nextseqnum++;
-    printf("I am here1\n"); //for debug
-    printf("%s\n",sendpkt.payload); //for debug
   }
   else{
     //Refuse 
   }
-
-  // for(int i=base;i<=base+winsize;i++)
-  // if(sendtime[i]+15>get_sim_time()){
-  //   if(r[i]!=1){
-  //   intseq = i;
-  //   A_timerinterrupt();
-  //   }
-  // }
 }
 
 /* called from layer 3, when a packet arrives for layer 4 */
@@ -102,52 +80,51 @@ void A_input(struct pkt packet)
 
 //Calculating Checksum
 int checksum = 0;
+ cout<<readyq.size();
 checksum += packet.seqnum + packet.acknum;
 if(checksum == packet.checksum){ //check for corruption
+if(packet.seqnum>=base && packet.seqnum<=(base+winsize-1)){
       stoptimer(0);
       printf("I am here8\n");
       if(r[packet.seqnum]!=1) //marking as received
       r[packet.seqnum]=1;
       if(packet.acknum==base){  // If received an ack for base, slide the window for all received packages
         while(r[base]==1){
+          buffer[base]="";
           base++; 
-          b=-1;
         }
       }
+       printf("I am here88\n");
+       cout<<packet.seqnum<<'\n';
       while(r[readyq.front()] == 1)
       readyq.pop();
+      // if(!readyq.empty()){
       float time = get_sim_time() - sendtime[readyq.front()];
-      starttimer(0,30.00-time);
+      starttimer(0,15.00-time);
+}
 }
 else{
   //do nothing
 }
-printf("%d\n",base);
+ cout<<readyq.size();
 }
 
 /* called when A's timer goes off */
 void A_timerinterrupt()
 {
 //Resend the packet whose ack is not received
-  printf("1 %f\n",get_sim_time());
-  printf("1 %f\n",starttime);
-  makepacket(bufferpkt,base);
+  makepacket(bufferpkt,readyq.front());
   sendpacket(bufferpkt);
   sendtime[readyq.front()]=get_sim_time();
+  cout<<readyq.front();
+   cout<<readyq.size();
+  int x=readyq.front();
   readyq.push(readyq.front());
   readyq.pop();
    while(r[readyq.front()] == 1)
       readyq.pop();
-  float time = (get_sim_time()) - sendtime[readyq.front()];
-  starttimer(0,30.00-time);
-  // sendtime[base]=get_sim_time()-starttime;
-  // it[base].i=1;
-  // it[base].pseq = nextseqnum -1;
-  // float time=get_sim_time() - starttime;
-  // starttimer(0,15);
-  // printf("2 %f\n",time + 15);
-  // printf("2 %f\n",sendtime[base + 1]+15-time);
-  // printf("2 %f\n",get_sim_time());
+  float time = get_sim_time() - sendtime[readyq.front()];
+  starttimer(0,15.00-time);
   }
 
 
@@ -155,12 +132,13 @@ void A_timerinterrupt()
 /* entity A routines are called. You can use it to do any initialization */
 void A_init()
 {
+  for(int i=0;i<1000;i++){
+    r[i]=0;
+  }
     base=1;
     nextseqnum=1;
     winsize=getwinsize();
     bufferseqnum=1;
-     // Starting Timer for the whole Window, so that there is enough time for all packets
-    rl=0;
 }
 
 /* Note that with simplex transfer from a-to-B, there is no B_output() */
@@ -168,38 +146,32 @@ void A_init()
 /* called from layer 3, when a packet arrives for layer 4 at B*/
 void B_input(struct pkt packet)
 {
-  printf("I am here2\n"); //for debug
-   printf("%s\n",packet.payload); //for debug
+  cout<<rbase<<'\n';
+    cout<<packet.seqnum<<' '<<packet.payload<<'\n';
    int checksum = 0;
 for(int i=0;i<20;i++){
-  checksum += packet.payload[i];
+  checksum += (int)packet.payload[i];
 }
 checksum += packet.seqnum + packet.acknum;
 if(checksum == packet.checksum){ // If not corrupted and has expected sequence number
       if(packet.seqnum >= rbase && packet.seqnum<=(rbase + rwindow -1)){
-        printf("I am here3\n"); //for debug
               ackpkt.seqnum=packet.seqnum;
             ackpkt.acknum=packet.acknum;
             ackpkt.checksum=ackpkt.seqnum+ackpkt.acknum;
             tolayer3(1,ackpkt); //sending ack for packet in expected window
             rlist[packet.seqnum]=1;
             if(packet.seqnum!=rbase){
-              printf("I am here4\n"); //for debug
               //buffer
-              rbuffer[packet.seqnum]=packet;
+              rbuffer[packet.seqnum]=packet.payload;
             }
-            else{printf("I am here5\n"); //for debug
-              rbuffer[packet.seqnum]=packet;
-              while(rlist[rbase]==1){
-                printf("I am here6\n");//for debug
-                printf("%s\n",rbuffer[rbase].payload); //for debug
-                strncpy(rcv,rbuffer[rbase].payload,20); //for debug
-                printf("%s\n",rcv); //for debug
-                tolayer5(1,rcv); // Sending all received packets to layer5
-                printf("I am here7\n");
-                printf("%s\n",rcv);
+            else{
+              rbuffer[packet.seqnum]=packet.payload;
+              do{
+                for(int i=0;i<20;i++)
+                rcv[i]=rbuffer[rbase][i];
+                tolayer5(1,rcv); 
                 rbase++;
-              }
+              }while(rlist[rbase]==1);
             }
       }
       else{  //If not in current window but in any previous window
@@ -220,8 +192,11 @@ if(checksum == packet.checksum){ // If not corrupted and has expected sequence n
 /* entity B routines are called. You can use it to do any initialization */
 void B_init()
 {
+  for(int i=0;i<1000;i++){
+    rlist[i]=0;
+  }
 rbase=1;
 rwindow=getwinsize();
-ackpkt.seqnum=0;
-ackpkt.acknum=0;
+ackpkt.seqnum=1;
+ackpkt.acknum=1;
 }
