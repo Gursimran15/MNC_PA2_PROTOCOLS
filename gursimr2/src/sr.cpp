@@ -129,23 +129,26 @@ if(packet.checksum == checksum){
     
     if(rr[packet.seqnum-1]!=1){
     rr[packet.seqnum-1]=1;
-    rbuffer[packet.seqnum-1]=packet;
+    rbuffer[packet.seqnum-1].seqnum=packet.seqnum;
+    rbuffer[packet.seqnum-1].acknum=packet.acknum;
+    rbuffer[packet.seqnum-1].checksum=packet.checksum;
+    strncpy(rbuffer[packet.seqnum-1].payload,packet.payload,sizeof(packet.payload));
+        
     }
-    strncpy(rcv,rbuffer[packet.seqnum-1].payload,20);
+    
     if(packet.seqnum == rbase){
-      for(int i=0;i<20;i++)
-        rcv[i]=packet.payload[i];
-        cout<<rcv<<'\n';
-      tolayer5(1,rcv);
-      rbase++;
-      while(rr[packet.seqnum-1]==1){
+      do{
         for(int i=0;i<20;i++)
-        {rcv[i]=rbuffer[packet.seqnum].payload[i];
+        {rcv[i]=rbuffer[packet.seqnum-1].payload[i];
          cout<<rcv[i];
         }
+        cout<<"\n";
         tolayer5(1,rcv);
         rbase++;
-      }
+
+      }while(rr[rbase-1]==1);
+        
+      
     }
 
   }
