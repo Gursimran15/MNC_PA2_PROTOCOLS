@@ -16,115 +16,81 @@ using namespace std;
 **********************************************************************/
 
 /********* STUDENTS WRITE THE NEXT SEVEN ROUTINES *********/
-struct buf{
-  string b;
-  int r;
-  float st;
-};
-int base,nextseqnum,winsize,bufferseqnum,rbase,rwindow;
-map<int, string> buffer;
-queue<int> readyq;
-map<int,string> rbuffer;
-map<int,int> r;
-map<int,int> rlist;
-map<int,float> sendtime;
-char rcv[20];
-pkt sendpkt,bufferpkt,ackpkt; 
-void makepacket(pkt &p,int n){
-p.checksum=0;
-for(int i=0;i<20;i++){
-  p.payload[i]=buffer[n][i];
-  p.checksum+=(int)p.payload[i];
-}
-p.seqnum = n;
-p.acknum = n;
-p.checksum += p.seqnum + p.acknum;
-}
-void sendpacket(pkt &p){
-tolayer3(0,p);
-}
+
 /* called from layer 5, passed the data to be sent to other side */
+int sendbase,nextseqnum,rbase,window,bufferseqnum;
+queue <int> wait;
+pkt buffer[1000];
+pkt rbuffer[1000];
+pkt ack;
+int rs[1000],rr[1000];
+float st[1000];
+
 void A_output(struct msg message)
 {
-  //Storing in Buffer
-  buffer[bufferseqnum]=message.data;
+  strncpy(buffer[bufferseqnum-1].payload,message.data,sizeof(message.data));
+  buffer[bufferseqnum-1].seqnum = bufferseqnum;
+  buffer[bufferseqnum-1].acknum = bufferseqnum;
+  buffer[bufferseqnum-1].checksum = 2*bufferseqnum;
+  for(int i=0;i<20;i++)
+  buffer[bufferseqnum-1].checksum+=(int)buffer[bufferseqnum-1].payload[i];
   bufferseqnum++;
-  for(int i=1;i<bufferseqnum;i++){
-    cout<<i<<'\n'<<buffer[i]<<'\n';
-  }
-  cout<<nextseqnum<<'\n'<<buffer[nextseqnum]<<'\n';
-   if((nextseqnum) < (base + winsize) ){
-    //makepacket
-    makepacket(sendpkt,nextseqnum);
-    //sendpacket
-    sendpacket(sendpkt);
-    sendtime[nextseqnum]=get_sim_time();
-    readyq.push(nextseqnum);
-    if(nextseqnum==1)
-      starttimer(0,15.00);
-    cout<<"Send\n";
-    cout<<nextseqnum<<'\n';
-    cout<<base<<'\n';
-    cout<<sendpkt.seqnum<<' '<<sendpkt.payload<<'\n';
-    cout<<readyq.size();
+
+  if(nextseqnum >= sendbase && nextseqnum < sendbase + window){
+    
+    wait.push(nextseqnum);
+    rs[nextseqnum-1]=0;
+    st[nextseqnum-1]=get_sim_time();
+    tolayer3(0,buffer[nextseqnum-1]);
+
+    cout<<buffer[nextseqnum-1].payload;
+    
+    if(nextseqnum==1){
+      starttimer(0,15);
+    }
     nextseqnum++;
   }
-  else{
-    //Refuse 
-  }
+  
 }
 
 /* called from layer 3, when a packet arrives for layer 4 */
 void A_input(struct pkt packet)
 {
+   int checksum = packet.seqnum + packet.acknum;
+if(packet.checksum == checksum){
 
-//Calculating Checksum
-int checksum = 0;
- cout<<readyq.size();
-checksum += packet.seqnum + packet.acknum;
-if(checksum == packet.checksum){ //check for corruption
-if(packet.seqnum>=base && packet.seqnum<=(base+winsize-1)){
-      stoptimer(0);
-      printf("I am here8\n");
-      if(r[packet.seqnum]!=1) //marking as received
-      r[packet.seqnum]=1;
-      if(packet.acknum==base){  // If received an ack for base, slide the window for all received packages
-        while(r[base]==1){
-          buffer[base]="";
-          base++; 
-        }
-      }
-       printf("I am here88\n");
-       cout<<packet.seqnum<<'\n';
-      while(r[readyq.front()] == 1)
-      readyq.pop();
-      // if(!readyq.empty()){
-      float time = get_sim_time() - sendtime[readyq.front()];
-      starttimer(0,15.00-time);
+ if(packet.acknum >= sendbase && packet.acknum < sendbase + window){
+   
+   rs[packet.seqnum - 1]=1;
+   
+   if(sendbase==packet.acknum){
+     while(rs[sendbase-1]==1)
+     sendbase++;
+   }
+   
+   stoptimer(0);
+   while(rs[wait.front()-1]==1)
+   wait.pop();
+   starttimer(0,15.0 + st[wait.front()-1] - get_sim_time());
+
+ }
+
 }
-}
-else{
-  //do nothing
-}
- cout<<readyq.size();
+
 }
 
 /* called when A's timer goes off */
 void A_timerinterrupt()
 {
-//Resend the packet whose ack is not received
-  makepacket(bufferpkt,readyq.front());
-  sendpacket(bufferpkt);
-  sendtime[readyq.front()]=get_sim_time();
-  cout<<readyq.front();
-   cout<<readyq.size();
-  int x=readyq.front();
-  readyq.push(readyq.front());
-  readyq.pop();
-   while(r[readyq.front()] == 1)
-      readyq.pop();
-  float time = get_sim_time() - sendtime[readyq.front()];
-  starttimer(0,15.00-time);
+int p = wait.front();
+wait.pop();
+wait.push(p);
+tolayer3(0,buffer[p-1]);
+
+while(rs[wait.front()-1]==1)
+wait.pop();
+st[p-1]=get_sim_time();
+starttimer(0,15.0 + st[wait.front()-1] - st[p-1]);
   }
 
 
@@ -132,71 +98,64 @@ void A_timerinterrupt()
 /* entity A routines are called. You can use it to do any initialization */
 void A_init()
 {
-  for(int i=0;i<1000;i++){
-    r[i]=0;
+bufferseqnum = 1;
+nextseqnum = 1;
+sendbase = 1;
+window=getwinsize();
   }
-    base=1;
-    nextseqnum=1;
-    winsize=getwinsize();
-    bufferseqnum=1;
-}
 
 /* Note that with simplex transfer from a-to-B, there is no B_output() */
 
 /* called from layer 3, when a packet arrives for layer 4 at B*/
 void B_input(struct pkt packet)
 {
-  cout<<rbase<<'\n';
-    cout<<packet.seqnum<<' '<<packet.payload<<'\n';
-   int checksum = 0;
-for(int i=0;i<20;i++){
+  cout<<buffer[nextseqnum-1].payload;
+
+   int checksum = packet.seqnum + packet.acknum;
+  for(int i=0;i<20;i++)
   checksum += (int)packet.payload[i];
-}
-checksum += packet.seqnum + packet.acknum;
-if(checksum == packet.checksum){ // If not corrupted and has expected sequence number
-      if(packet.seqnum >= rbase && packet.seqnum<=(rbase + rwindow -1)){
-              ackpkt.seqnum=packet.seqnum;
-            ackpkt.acknum=packet.acknum;
-            ackpkt.checksum=ackpkt.seqnum+ackpkt.acknum;
-            tolayer3(1,ackpkt); //sending ack for packet in expected window
-            rlist[packet.seqnum]=1;
-            if(packet.seqnum!=rbase){
-              //buffer
-              rbuffer[packet.seqnum]=packet.payload;
-            }
-            else{
-              rbuffer[packet.seqnum]=packet.payload;
-              do{
-                for(int i=0;i<20;i++)
-                rcv[i]=rbuffer[rbase][i];
-                tolayer5(1,rcv); 
-                rbase++;
-              }while(rlist[rbase]==1);
-            }
+if(packet.checksum == checksum){
+  ack.seqnum = packet.seqnum;
+  ack.acknum = packet.acknum;
+  if(packet.seqnum>=rbase && packet.seqnum < rbase + window){
+    tolayer3(1,ack);
+    
+    if(rr[packet.seqnum-1]!=1){
+    rr[packet.seqnum-1]=1;
+    rbuffer[packet.seqnum-1]=packet;
+    }
+
+    if(packet.seqnum == rbase){
+      tolayer5(1,packet.payload);
+      rbase++;
+      while(rr[packet.seqnum-1]==1){
+        tolayer5(1,rbuffer[packet.seqnum-1].payload);
+        rbase++;
       }
-      else{  //If not in current window but in any previous window
-              if(packet.seqnum >= (rbase-rwindow) && packet.seqnum<=(rbase-1)){
-                ackpkt.seqnum=packet.seqnum;
-                ackpkt.acknum=packet.acknum;
-                ackpkt.checksum=ackpkt.seqnum+ackpkt.acknum;
-                tolayer3(1,ackpkt);
-              }
-              else{
-                //do nothing
-              }
-      }
+    }
+
+  }
+
+else{
+  if(packet.seqnum>=rbase-window && packet.seqnum < rbase){
+   tolayer3(1,ack);
+  }
+  else{
+
+  }
 }
+
+}
+
 }
 
 /* the following rouytine will be called once (only) before any other */
 /* entity B routines are called. You can use it to do any initialization */
 void B_init()
 {
-  for(int i=0;i<1000;i++){
-    rlist[i]=0;
-  }
-rbase=1;
-rwindow=getwinsize();
-ackpkt.seqnum=1;
-ackpkt.acknum=1;
+  for(int i=0;i<1000;i++)
+  rr[i]=0;
+  rbase=1;
+  window=getwinsize();
+  
 }
