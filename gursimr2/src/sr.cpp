@@ -25,10 +25,12 @@ pkt rbuffer[1000];
 pkt ack;
 int rs[1000],rr[1000];
 float st[1000];
+char rcv[20];
 
 void A_output(struct msg message)
 {
-  strncpy(buffer[bufferseqnum-1].payload,message.data,sizeof(message.data));
+  for(int i=0;i<20;i++)
+        buffer[bufferseqnum-1].payload[i]=message.data[i];
   buffer[bufferseqnum-1].seqnum = bufferseqnum;
   buffer[bufferseqnum-1].acknum = bufferseqnum;
   buffer[bufferseqnum-1].checksum = 2*bufferseqnum;
@@ -36,17 +38,19 @@ void A_output(struct msg message)
   buffer[bufferseqnum-1].checksum+=(int)buffer[bufferseqnum-1].payload[i];
   bufferseqnum++;
 
-  if(nextseqnum >= sendbase && nextseqnum < sendbase + window){
+  if(nextseqnum < sendbase + window){
     
     wait.push(nextseqnum);
     rs[nextseqnum-1]=0;
     st[nextseqnum-1]=get_sim_time();
     tolayer3(0,buffer[nextseqnum-1]);
 
-    cout<<buffer[nextseqnum-1].payload;
-    
+    cout<<buffer[nextseqnum-1].payload<<"\n";
+    cout<<buffer[nextseqnum-1].seqnum<<"\n";
+    cout<<buffer[nextseqnum-1].acknum<<"\n";
+    cout<<buffer[nextseqnum-1].checksum<<"\n";
     if(nextseqnum==1){
-      starttimer(0,15);
+      starttimer(0,15.0);
     }
     nextseqnum++;
   }
@@ -109,11 +113,14 @@ window=getwinsize();
 /* called from layer 3, when a packet arrives for layer 4 at B*/
 void B_input(struct pkt packet)
 {
-  cout<<buffer[nextseqnum-1].payload;
-
+  cout<<packet.payload<<"\n";
+    cout<<packet.seqnum<<"\n";
+    cout<<packet.acknum<<"\n";
+    cout<<packet.checksum<<"\n";
    int checksum = packet.seqnum + packet.acknum;
   for(int i=0;i<20;i++)
-  checksum += (int)packet.payload[i];
+  { checksum += (int)packet.payload[i];
+  }
 if(packet.checksum == checksum){
   ack.seqnum = packet.seqnum;
   ack.acknum = packet.acknum;
@@ -124,12 +131,19 @@ if(packet.checksum == checksum){
     rr[packet.seqnum-1]=1;
     rbuffer[packet.seqnum-1]=packet;
     }
-
+    strncpy(rcv,rbuffer[packet.seqnum-1].payload,20);
     if(packet.seqnum == rbase){
-      tolayer5(1,packet.payload);
+      for(int i=0;i<20;i++)
+        rcv[i]=packet.payload[i];
+        cout<<rcv<<'\n';
+      tolayer5(1,rcv);
       rbase++;
       while(rr[packet.seqnum-1]==1){
-        tolayer5(1,rbuffer[packet.seqnum-1].payload);
+        for(int i=0;i<20;i++)
+        {rcv[i]=rbuffer[packet.seqnum].payload[i];
+         cout<<rcv[i];
+        }
+        tolayer5(1,rcv);
         rbase++;
       }
     }
@@ -146,6 +160,7 @@ else{
 }
 
 }
+cout<<"I am here\n";
 
 }
 
