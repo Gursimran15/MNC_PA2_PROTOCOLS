@@ -30,7 +30,7 @@ char rcv[20];
 void A_output(struct msg message)
 {
   for(int i=0;i<20;i++)
-        buffer[bufferseqnum-1].payload[i]=message.data[i];
+  buffer[bufferseqnum-1].payload[i]=message.data[i];
   buffer[bufferseqnum-1].seqnum = bufferseqnum;
   buffer[bufferseqnum-1].acknum = bufferseqnum;
   buffer[bufferseqnum-1].checksum = 2*bufferseqnum;
@@ -53,13 +53,9 @@ void A_output(struct msg message)
     if(nextseqnum==sendbase){
       starttimer(0,20.0);
     }
-  //   if(wait.size()==1 && wait.front()==nextseqnum)
-  //  starttimer(0,20.0);
+ 
     nextseqnum++;
   }
-  // if(nextseqnum-1 !=1 && sendbase==nextseqnum-1){
-  //   starttimer(0,20.0);
-  // }
   
 }
 
@@ -114,7 +110,7 @@ if(packet.checksum == checksum){
 /* called when A's timer goes off */
 void A_timerinterrupt()
 {
-  if(st[wait.front()-1]==get_sim_time()-20 && rs[wait.front()-1]==0){
+  if(rs[wait.front()-1]==0){
     tolayer3(0,buffer[wait.front()-1]);
     st[wait.front()-1]=get_sim_time();
   }
