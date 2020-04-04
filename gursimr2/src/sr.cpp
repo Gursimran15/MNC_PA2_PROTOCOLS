@@ -50,16 +50,16 @@ void A_output(struct msg message)
     cout<<buffer[nextseqnum-1].acknum<<"\n";
     cout<<buffer[nextseqnum-1].checksum<<"\n";
     cout<<"\n"<<wait.size();
-    if(nextseqnum==1){
+    if(nextseqnum==sendbase){
       starttimer(0,20.0);
     }
   //   if(wait.size()==1 && wait.front()==nextseqnum)
   //  starttimer(0,20.0);
     nextseqnum++;
   }
-  if(nextseqnum-1 !=1 && sendbase==nextseqnum-1){
-    starttimer(0,20.0);
-  }
+  // if(nextseqnum-1 !=1 && sendbase==nextseqnum-1){
+  //   starttimer(0,20.0);
+  // }
   
 }
 
@@ -77,47 +77,53 @@ if(packet.checksum == checksum){
     
     cout<<"I am here\n";
    rs[packet.seqnum - 1]=1;
-   
+   st[sendbase - 1] = 0;
    if(sendbase==packet.acknum){
      stoptimer(0);
-     while(rs[sendbase-1]==1)
+     while(rs[sendbase-1]==1){
+     if(wait.front()==sendbase)
+     wait.pop();
      sendbase++;
-     while(rs[wait.front()-1]==1)
-   wait.pop();
-   float time = get_sim_time() - st[wait.front()-1]; 
-   float ftime = 20.0 -time;
-    starttimer(0,ftime);
-   }
-   
- }
-
-}
-cout<<checksum<<" "<<packet.checksum<<"\n";
+     }
   
+   }
+
+   while(nextseqnum < sendbase + window && nextseqnum < bufferseqnum){
+    
+    wait.push(nextseqnum);
+    rs[nextseqnum-1]=0;
+    st[nextseqnum-1]=get_sim_time();
+    tolayer3(0,buffer[nextseqnum-1]);
+    nextseqnum++;
+  }
+  if(sendbase==nextseqnum)
+    stoptimer(0); //until i get another packet from above
+    cout<<checksum<<" "<<packet.checksum<<"\n";
   //  if(!wait.empty())
   
    cout<<"I am here\n";
     cout<<get_sim_time()<<"\n"<<wait.front();
+   
+ }
+
+}
+
 
 }
 
 /* called when A's timer goes off */
 void A_timerinterrupt()
 {
+  if(st[wait.front()-1]==get_sim_time()-20 && rs[wait.front()-1]==0){
+    tolayer3(0,buffer[wait.front()-1]);
+    st[wait.front()-1]=get_sim_time();
+  }
 int p = wait.front();
 wait.pop();
 wait.push(p);
-tolayer3(0,buffer[p-1]);
-
-while(rs[wait.front()-1]==1)
-wait.pop();
-st[p-1]=get_sim_time();
 float time = get_sim_time() - st[wait.front()-1]; 
 float ftime = 20.0 - time;
-if(ftime > 0)
 	starttimer(0,ftime);
-	else
-	starttimer(0,20.0);
   }
 
 
