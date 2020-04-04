@@ -53,7 +53,7 @@ void A_output(struct msg message)
     if(nextseqnum==1){
       starttimer(0,20.0);
     }
-    if(wait.size()==1)
+    if(wait.size()==1 && wait.front()==nextseqnum)
    starttimer(0,20.0);
     nextseqnum++;
   }
@@ -63,14 +63,15 @@ void A_output(struct msg message)
 /* called from layer 3, when a packet arrives for layer 4 */
 void A_input(struct pkt packet)
 {
-  cout<<"I am here\n";
-  cout<<get_sim_time()<<"\n";
+ cout<<"I am here\n";
+    cout<<get_sim_time()<<"\n"<<wait.front();
   cout<<packet.seqnum;
-  stoptimer(0);
+ 
    int checksum = packet.seqnum + packet.acknum;
 if(packet.checksum == checksum){
 
  if(packet.acknum >= sendbase && packet.acknum < sendbase + window){
+    stoptimer(0);
     
     cout<<"I am here\n";
    rs[packet.seqnum - 1]=1;
@@ -79,15 +80,19 @@ if(packet.checksum == checksum){
      while(rs[sendbase-1]==1)
      sendbase++;
    }
-
+   
+   while(rs[wait.front()-1]==1)
+   wait.pop();
+   float time = get_sim_time() - st[wait.front()-1]; 
+   if(!wait.empty())
+    starttimer(0,20.0 -time);
  }
 
 }
 cout<<checksum<<" "<<packet.checksum<<"\n";
-  while(rs[wait.front()-1]==1)
-   wait.pop();
-   if(!wait.empty())
-   starttimer(0,20.0 + st[wait.front()-1] - get_sim_time());
+  
+  //  if(!wait.empty())
+  
    cout<<"I am here\n";
     cout<<get_sim_time()<<"\n"<<wait.front();
 
@@ -104,7 +109,8 @@ tolayer3(0,buffer[p-1]);
 while(rs[wait.front()-1]==1)
 wait.pop();
 st[p-1]=get_sim_time();
-starttimer(0,20.0 + st[wait.front()-1] - st[p-1]);
+float time = get_sim_time() - st[wait.front()-1]; 
+starttimer(0,20.0 - time);
   }
 
 
@@ -150,7 +156,7 @@ if(packet.checksum == checksum){
     if(packet.seqnum == rbase){
       do{
         for(int i=0;i<20;i++)
-        {rcv[i]=rbuffer[packet.seqnum-1].payload[i];
+        {rcv[i]=rbuffer[rbase-1].payload[i];
          cout<<rcv[i];
         }
         cout<<"\n";
