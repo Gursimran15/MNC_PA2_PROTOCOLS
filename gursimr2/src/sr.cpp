@@ -115,7 +115,7 @@ void A_timerinterrupt()
 int p = wait.front();
 wait.pop();
 wait.push(p);
-float time = get_sim_time() - st[wait.front()-1]; 
+float time = get_sim_time() - st[wait.front()-1]; //Getting Relative Time
 float ftime = 20.0 - time;
 	starttimer(0,ftime);
   }
